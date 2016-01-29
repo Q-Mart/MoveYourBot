@@ -6,6 +6,11 @@ import (
 	"log"
 )
 
+type telegramMessage struct {
+	chatID int
+	text   string
+}
+
 func getAccessToken() string {
 	buff, err := ioutil.ReadFile("access.token")
 	if err != nil {
@@ -17,11 +22,11 @@ func getAccessToken() string {
 
 func main() {
 	bot, err := tgbotapi.NewBotAPI(getAccessToken())
+	messages := make(chan telegramMessage)
+
 	if err != nil {
 		log.Panic(err)
 	}
-
-	bot.Debug = true
 
 	log.Printf("Authorized on account %s", bot.Self.UserName)
 
@@ -30,12 +35,41 @@ func main() {
 
 	updates, err := bot.GetUpdatesChan(u)
 
-	for update := range updates {
-		log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+	activeUsers := make(map[int]countdownTimer)
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-		msg.ReplyToMessageID = update.Message.MessageID
+	go func() {
+		for update := range updates {
+			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+			command := update.Message.Text
+			chatID := update.Message.Chat.ID
 
+			if _, ok := activeUsers[chatID]; ok {
+				userTimer := activeUsers[chatID]
+
+				switch command {
+				case "start":
+					go userTimer.StartNew(messages)
+
+				case "stop":
+					log.Println("Stopping timer")
+					userTimer.Stop()
+					delete(activeUsers, chatID)
+
+				}
+			} else {
+				activeUsers[chatID] = countdownTimer{chatID: chatID}
+				userTimer := activeUsers[chatID]
+
+				if command == "start" {
+					go userTimer.StartNew(messages)
+				}
+			}
+
+		}
+	}()
+
+	for message := range messages {
+		msg := tgbotapi.NewMessage(message.chatID, message.text)
 		bot.Send(msg)
 	}
 }
