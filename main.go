@@ -4,6 +4,8 @@ import (
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"io/ioutil"
 	"log"
+	"strings"
+	"time"
 )
 
 type telegramMessage struct {
@@ -23,6 +25,7 @@ func getAccessToken() string {
 func main() {
 	bot, err := tgbotapi.NewBotAPI(getAccessToken())
 	messages := make(chan telegramMessage)
+	activeUsers := make(map[int]*time.Ticker)
 
 	if err != nil {
 		log.Panic(err)
@@ -35,34 +38,34 @@ func main() {
 
 	updates, err := bot.GetUpdatesChan(u)
 
-	activeUsers := make(map[int]countdownTimer)
-
 	go func() {
 		for update := range updates {
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-			command := update.Message.Text
+			command := strings.ToUpper(update.Message.Text)
 			chatID := update.Message.Chat.ID
+			_, userActive := activeUsers[chatID]
 
-			if _, ok := activeUsers[chatID]; ok {
-				userTimer := activeUsers[chatID]
+			switch command {
+			case "START":
+				if userActive {
+					messages <- telegramMessage{chatID, "I've already started"}
+				} else {
+					activeUsers[chatID] = time.NewTicker(time.Second * 5)
 
-				switch command {
-				case "start":
-					go userTimer.StartNew(messages)
-
-				case "stop":
-					log.Println("Stopping timer")
-					userTimer.Stop()
-					delete(activeUsers, chatID)
-
+					go func() {
+						for range activeUsers[chatID].C {
+							messages <- telegramMessage{chatID, "Do 10 pull ups"}
+						}
+					}()
 				}
-			} else {
-				activeUsers[chatID] = countdownTimer{chatID: chatID}
-				userTimer := activeUsers[chatID]
 
-				if command == "start" {
-					go userTimer.StartNew(messages)
+			case "STOP":
+				if userActive {
+					activeUsers[chatID].Stop()
+				} else {
+					messages <- telegramMessage{chatID, "I haven't started"}
 				}
+
 			}
 
 		}
@@ -72,4 +75,5 @@ func main() {
 		msg := tgbotapi.NewMessage(message.chatID, message.text)
 		bot.Send(msg)
 	}
+
 }
