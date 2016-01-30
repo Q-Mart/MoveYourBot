@@ -26,6 +26,7 @@ func main() {
 	bot, err := tgbotapi.NewBotAPI(getAccessToken())
 	messages := make(chan telegramMessage)
 	activeUsers := make(map[int]*time.Ticker)
+	motivationalMessages := [3]string{"Do 10 pull ups!", "Do 10 press ups!", "Do 10 chin ups!"}
 
 	if err != nil {
 		log.Panic(err)
@@ -51,10 +52,13 @@ func main() {
 					messages <- telegramMessage{chatID, "I've already started"}
 				} else {
 					activeUsers[chatID] = time.NewTicker(time.Second * 5)
+					messages <- telegramMessage{chatID, "Get ready to rumble!"}
 
 					go func() {
+						i := 0
 						for range activeUsers[chatID].C {
-							messages <- telegramMessage{chatID, "Do 10 pull ups"}
+							messages <- telegramMessage{chatID, motivationalMessages[i%3]}
+							i++
 						}
 					}()
 				}
@@ -62,8 +66,16 @@ func main() {
 			case "STOP":
 				if userActive {
 					activeUsers[chatID].Stop()
+					delete(activeUsers, chatID)
 				} else {
 					messages <- telegramMessage{chatID, "I haven't started"}
+				}
+
+			case "STATUS":
+				if userActive {
+					messages <- telegramMessage{chatID, "You are currently in a session"}
+				} else {
+					messages <- telegramMessage{chatID, "You are not currently in session"}
 				}
 
 			}
