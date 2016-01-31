@@ -34,6 +34,38 @@ func motivate(chatID int, ch chan telegramMessage) {
 	}
 }
 
+func handle(command string, chatID int, ch chan telegramMessage) {
+	_, userActive := activeUsers[chatID]
+
+	switch command {
+	case "START":
+		if userActive {
+			ch <- telegramMessage{chatID, "I've already started"}
+		} else {
+			activeUsers[chatID] = time.NewTicker(time.Minute * 30)
+			ch <- telegramMessage{chatID, "Get ready to rumble!"}
+
+			go motivate(chatID, ch)
+		}
+
+	case "STOP":
+		if userActive {
+			activeUsers[chatID].Stop()
+			delete(activeUsers, chatID)
+		} else {
+			ch <- telegramMessage{chatID, "I haven't started"}
+		}
+
+	case "STATUS":
+		if userActive {
+			ch <- telegramMessage{chatID, "You are currently in a session"}
+		} else {
+			ch <- telegramMessage{chatID, "You are not currently in session"}
+		}
+
+	}
+}
+
 func main() {
 	bot, err := tgbotapi.NewBotAPI(getAccessToken())
 	messages := make(chan telegramMessage)
@@ -57,35 +89,8 @@ func main() {
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 			command := strings.ToUpper(update.Message.Text)
 			chatID := update.Message.Chat.ID
-			_, userActive := activeUsers[chatID]
 
-			switch command {
-			case "START":
-				if userActive {
-					messages <- telegramMessage{chatID, "I've already started"}
-				} else {
-					activeUsers[chatID] = time.NewTicker(time.Second * 5)
-					messages <- telegramMessage{chatID, "Get ready to rumble!"}
-
-					go motivate(chatID, messages)
-				}
-
-			case "STOP":
-				if userActive {
-					activeUsers[chatID].Stop()
-					delete(activeUsers, chatID)
-				} else {
-					messages <- telegramMessage{chatID, "I haven't started"}
-				}
-
-			case "STATUS":
-				if userActive {
-					messages <- telegramMessage{chatID, "You are currently in a session"}
-				} else {
-					messages <- telegramMessage{chatID, "You are not currently in session"}
-				}
-
-			}
+			handle(command, chatID, messages)
 
 		}
 	}()
