@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+var activeUsers = make(map[int]*time.Ticker)
+
 type telegramMessage struct {
 	chatID int
 	text   string
@@ -22,11 +24,22 @@ func getAccessToken() string {
 	return string(buff[:len(buff)-1])
 }
 
+func motivate(chatID int, ch chan telegramMessage) {
+	motivationalMessages := [3]string{"Do 10 pull ups!", "Do 10 press ups!", "Do 10 chin ups!"}
+	i := 0
+
+	for range activeUsers[chatID].C {
+		ch <- telegramMessage{chatID, motivationalMessages[i%3]}
+		i++
+	}
+}
+
 func main() {
 	bot, err := tgbotapi.NewBotAPI(getAccessToken())
 	messages := make(chan telegramMessage)
-	activeUsers := make(map[int]*time.Ticker)
-	motivationalMessages := [3]string{"Do 10 pull ups!", "Do 10 press ups!", "Do 10 chin ups!"}
+	keyboard := tgbotapi.ReplyKeyboardMarkup{
+		Keyboard:       [][]string{{"start"}, {"stop"}},
+		ResizeKeyboard: true}
 
 	if err != nil {
 		log.Panic(err)
@@ -54,13 +67,7 @@ func main() {
 					activeUsers[chatID] = time.NewTicker(time.Second * 5)
 					messages <- telegramMessage{chatID, "Get ready to rumble!"}
 
-					go func() {
-						i := 0
-						for range activeUsers[chatID].C {
-							messages <- telegramMessage{chatID, motivationalMessages[i%3]}
-							i++
-						}
-					}()
+					go motivate(chatID, messages)
 				}
 
 			case "STOP":
@@ -85,6 +92,7 @@ func main() {
 
 	for message := range messages {
 		msg := tgbotapi.NewMessage(message.chatID, message.text)
+		msg.ReplyMarkup = keyboard
 		bot.Send(msg)
 	}
 
