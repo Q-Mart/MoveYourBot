@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/go-telegram-bot-api/telegram-bot-api"
 	"io/ioutil"
 	"log"
@@ -25,11 +26,11 @@ func getAccessToken() string {
 }
 
 func motivate(chatID int, ch chan telegramMessage) {
-	motivationalMessages := [3]string{"Do 10 pull ups!", "Do 10 press ups!", "Do 10 chin ups!"}
+	motivationalMessages := [4]string{"Do 10 press ups!", "Do 1 minute of planking!", "Do some weights!", "Do some cycles!"}
 	i := 0
 
 	for range activeUsers[chatID].C {
-		ch <- telegramMessage{chatID, motivationalMessages[i%3]}
+		ch <- telegramMessage{chatID, motivationalMessages[i%len(motivationalMessages)]}
 		i++
 	}
 }
@@ -62,6 +63,9 @@ func handle(command string, chatID int, ch chan telegramMessage) {
 		} else {
 			ch <- telegramMessage{chatID, "You are not currently in session"}
 		}
+
+	default:
+		ch <- telegramMessage{chatID, fmt.Sprintf("Usage:\nstart: Start a new session\nstop: Stop current session\nstatus: See if you are in a session")}
 
 	}
 }
