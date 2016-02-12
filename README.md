@@ -1,5 +1,5 @@
 # MoveYourBot
-A Telegram bot that gets you to exercise every 30 miniutes
+A Telegram bot that gets you to exercise every 30 minutes
 
 Available [here] (https://telegram.me/move_your_bot)
 
@@ -7,7 +7,7 @@ Available [here] (https://telegram.me/move_your_bot)
 
 ###Commands
 #####`start`
-Will start your session, prompting you with an excercise every 30 minutes
+Will start your session, prompting you with an exercise every 30 minutes
 #####`stop`
 Will stop your current session
 #####`status`
